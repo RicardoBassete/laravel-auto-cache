@@ -67,6 +67,7 @@ File/Redis stores serialize Eloquent models. After deploys that change attribute
 **Don’t**
 
 - Expect list/aggregate caches to clear on a single `save()` / `update()` on one model.
+- Assume `$model->refresh()` or `replicate()` clears auto-cache — they only affect the in-memory instance / a new unsaved copy.
 - Cache across requests expecting identity of Eloquent instances (serialize-safe stores differ from array).
 - Call `Cache::flush()` as the normal invalidation path.
 

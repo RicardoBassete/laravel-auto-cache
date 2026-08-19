@@ -44,6 +44,13 @@ Those stay until TTL expires, a **mass** mutation runs (`User::query()->where(..
 
 This matches the package domain rules. If a screen must see fresh lists after one-row edits, call `User::autoCacheFlush()`, use `withoutCache()` on that read, or redesign the write as a mass invalidation path.
 
+## `refresh()` and `replicate()` are not invalidation
+
+- `$model->refresh()` reloads **that in-memory instance** from the database. It does **not** forget auto-cache keys. Other requests (and later `Model::find($id)` in the same process) can still receive the previous cached payload until invalidation/TTL.
+- `$model->replicate()` copies attributes into a **new** unsaved instance. It does not read or write the auto-cache.
+
+After external writes, use `autoCacheForget($id)`, `autoCacheFlush()`, model mutations that fire events, or `withoutCache()->find($id)`.
+
 ## Serialization warning
 
 File/Redis (and other serializing stores) persist Eloquent models (and loaded relations). After deploys that change attributes, casts, or relation shapes, stale payloads can fail to unserialize or look wrong until TTL/invalidation. Prefer short TTLs on volatile models, or flush after deploy when the schema of cached models changes.

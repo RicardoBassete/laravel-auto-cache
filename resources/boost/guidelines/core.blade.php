@@ -10,6 +10,7 @@ Opt-in Eloquent query caching via `AutoCaches` + `AutoCacheable` (`ricardobasset
 - Invalidation is deferred with `DB::afterCommit()`.
 - `$cacheInvalidates` lists **table names** to cascade-flush on mutation.
 - Manual APIs: `Model::autoCacheForget($id)`, `Model::autoCacheFlush()`, `$model->autoCacheForgetSelf()`.
+- `$model->refresh()` / `replicate()` do **not** invalidate auto-cache keys.
 - Serializing stores (file/redis) persist Eloquent models — flush after breaking model shape changes.
 
 ### Skills (activate as needed)
