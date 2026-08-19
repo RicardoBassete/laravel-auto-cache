@@ -25,6 +25,7 @@ Requires: Laravel 11+ / PHP 8.2+
 | TTL or miss caching | `laravel-auto-cache-ttl-misses` |
 | Bypass cache for a query | `laravel-auto-cache-bypass` |
 | Silent attribute updates | `laravel-auto-cache-silent-attributes` |
+| Pest expectations | `laravel-auto-cache-pest` |
 | General behavior / mental model | this skill |
 
 Read the focused skill before editing; do not invent APIs beyond what those skills document.

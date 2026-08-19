@@ -34,10 +34,18 @@
             "RicardoBassete\\AutoCache\\Tests\\": "tests/"
         }
     },
+    "suggest": {
+        "pestphp/pest": "Required to use AutoCache Pest expectations (toHaveCachedFind / toMissCachedFind)."
+    },
     "extra": {
         "laravel": {
             "providers": [
                 "RicardoBassete\\AutoCache\\AutoCacheServiceProvider"
+            ]
+        },
+        "pest": {
+            "plugins": [
+                "RicardoBassete\\AutoCache\\Pest\\Plugin"
             ]
         },
         "branch-alias": {

@@ -32,6 +32,7 @@ Optional: `$cacheSilentAttributes` — updates that only change those columns sk
 - Manual invalidation: `Model::autoCacheForget($id)`, `Model::autoCacheFlush()`, `$model->autoCacheForgetSelf()`
 - Debug helpers: `Model::autoCacheKeys()`, `Model::autoCacheRemember($id, fn)`
 - Observability events: `AutoCacheHit`, `AutoCacheMiss`, `AutoCacheInvalidated`
+- Pest expectations (optional): `toHaveCachedFind` / `toMissCachedFind`
 
 ## Important: intentional cache staleness
 
@@ -116,8 +117,21 @@ and select this package’s skills/guidelines when prompted. Boost copies skills
 | `laravel-auto-cache-ttl-misses` | `$cacheTtl` / `$cacheMisses` |
 | `laravel-auto-cache-bypass` | `withoutCache()` |
 | `laravel-auto-cache-silent-attributes` | `$cacheSilentAttributes` |
+| `laravel-auto-cache-pest` | Pest `toHaveCachedFind` / `toMissCachedFind` |
 
 Canonical copies for Boost live under `resources/boost/skills/`. Matching files under [`.agents/skills/`](.agents/skills/) stay in sync for agents opened on this package repo.
+
+## Pest expectations
+
+With `pestphp/pest` installed, the package registers a Bootable Pest plugin. In consumer (or package) tests:
+
+```php
+User::query()->find($user->id);
+
+expect(User::class)->toHaveCachedFind($user->id);
+expect(User::class)->toMissCachedFind($user->id);
+expect(User::class)->toHaveCachedFind($user->id, ['posts']); // with eager loads
+```
 
 ## Development
 
