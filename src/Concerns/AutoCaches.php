@@ -65,6 +65,48 @@ trait AutoCaches
         return $builder->withoutCache();
     }
 
+    /**
+     * Forget cached find entries for a primary key (and cascade tables).
+     */
+    public static function autoCacheForget(int|string $id): void
+    {
+        /** @var static&Model&AutoCacheable $model */
+        $model = new static;
+        $manager = app(CacheManager::class);
+
+        $manager->invalidateRecord($model->getTable(), $id);
+        $manager->invalidateTables($model->cacheInvalidatesTables());
+    }
+
+    /**
+     * Flush all registered cache keys for this model's table (and cascade tables).
+     */
+    public static function autoCacheFlush(): void
+    {
+        /** @var static&Model&AutoCacheable $model */
+        $model = new static;
+        $manager = app(CacheManager::class);
+
+        $manager->invalidateTables([
+            $model->getTable(),
+            ...$model->cacheInvalidatesTables(),
+        ]);
+    }
+
+    /**
+     * Forget cached find entries for this model instance.
+     */
+    public function autoCacheForgetSelf(): void
+    {
+        $key = $this->getKey();
+
+        if (! is_int($key) && ! is_string($key)) {
+            return;
+        }
+
+        static::autoCacheForget($key);
+    }
+
     public function cacheTtlSeconds(): int
     {
         if (! property_exists($this, 'cacheTtl') || $this->cacheTtl === null) {

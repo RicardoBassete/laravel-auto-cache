@@ -6,9 +6,11 @@ Opt-in Eloquent query caching via `AutoCaches` + `AutoCacheable` (`ricardobasset
 
 - Opt-in per model only — never enable globally.
 - Implement `RicardoBassete\AutoCache\Contracts\AutoCacheable` and `use RicardoBassete\AutoCache\Concerns\AutoCaches`.
-- Single-row mutations invalidate that record’s find cache only; mass query mutations flush the table registry.
+- Single-row mutations invalidate that record’s find cache only; **list/aggregate caches stay stale** until TTL, mass flush, cascade, or `autoCacheFlush()`.
 - Invalidation is deferred with `DB::afterCommit()`.
 - `$cacheInvalidates` lists **table names** to cascade-flush on mutation.
+- Manual APIs: `Model::autoCacheForget($id)`, `Model::autoCacheFlush()`, `$model->autoCacheForgetSelf()`.
+- Serializing stores (file/redis) persist Eloquent models — flush after breaking model shape changes.
 
 ### Skills (activate as needed)
 

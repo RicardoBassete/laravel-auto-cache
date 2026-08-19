@@ -25,10 +25,17 @@ return new class extends Migration
             $table->string('title');
             $table->timestamps();
         });
+
+        Schema::create('uuid_articles', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('title');
+            $table->timestamps();
+        });
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('uuid_articles');
         Schema::dropIfExists('posts');
         Schema::dropIfExists('users');
     }

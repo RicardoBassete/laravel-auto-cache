@@ -97,6 +97,107 @@ class CachedBuilder extends Builder
     }
 
     /**
+     * @param  Arrayable<array-key, mixed>|array<mixed>  $ids
+     * @param  list<string>  $columns
+     * @return EloquentCollection<int, TModel>
+     */
+    public function findMany($ids, $columns = ['*'])
+    {
+        $ids = $ids instanceof Arrayable ? $ids->toArray() : $ids;
+
+        if ($ids === []) {
+            return $this->model->newCollection();
+        }
+
+        if (! $this->cachingEnabled()) {
+            return parent::findMany($ids, $columns);
+        }
+
+        $manager = $this->manager();
+        $model = $this->getModel();
+        $eager = $this->eagerNames();
+        $table = $model->getTable();
+
+        /** @var array<string|int, TModel|null> $resolved */
+        $resolved = [];
+        $missing = [];
+
+        foreach ($ids as $id) {
+            if (! is_int($id) && ! is_string($id)) {
+                $missing[] = $id;
+
+                continue;
+            }
+
+            $key = $manager->recordKey($table, $id, $eager);
+
+            if ($manager->has($key)) {
+                /** @var TModel|null $cached */
+                $cached = $manager->get($key);
+                $resolved[$id] = $cached;
+
+                continue;
+            }
+
+            $missing[] = $id;
+        }
+
+        if ($missing !== []) {
+            /** @var EloquentCollection<int, TModel> $loaded */
+            $loaded = $this->runWithoutCaching(fn (): EloquentCollection => parent::findMany($missing, $columns));
+
+            foreach ($loaded as $item) {
+                $itemKey = $item->getKey();
+
+                if (! is_int($itemKey) && ! is_string($itemKey)) {
+                    continue;
+                }
+
+                $cacheKey = $manager->recordKey($table, $itemKey, $eager);
+
+                if ($this->shouldStore($item)) {
+                    $manager->put($cacheKey, $item, $this->ttl(), $table, $itemKey);
+                }
+
+                $resolved[$itemKey] = $item;
+            }
+
+            foreach ($missing as $id) {
+                if (! is_int($id) && ! is_string($id)) {
+                    continue;
+                }
+
+                if (array_key_exists($id, $resolved)) {
+                    continue;
+                }
+
+                if ($this->shouldStore(null)) {
+                    $cacheKey = $manager->recordKey($table, $id, $eager);
+                    $manager->put($cacheKey, null, $this->ttl(), $table, $id);
+                }
+
+                $resolved[$id] = null;
+            }
+        }
+
+        $models = [];
+
+        foreach ($ids as $id) {
+            if ((! is_int($id) && ! is_string($id)) || ! array_key_exists($id, $resolved)) {
+                continue;
+            }
+
+            $item = $resolved[$id];
+
+            if ($item instanceof Model) {
+                $models[] = $item;
+            }
+        }
+
+        return $this->model->newCollection($models);
+    }
+
+    /**
      * @param  list<string>  $columns
      * @return EloquentCollection<int, TModel>
      */

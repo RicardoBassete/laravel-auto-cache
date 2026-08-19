@@ -42,13 +42,18 @@ After requiring the package, run `php artisan boost:update` (or `boost:install`)
 ## Mental model
 
 - **Opt-in only** via trait + `AutoCacheable` on the model.
-- Reads cached: `find` / `first` / `get` / `all`, plus `count` / `exists` / `sum` / `pluck` / `value`.
+- Reads cached: `find` / `findMany` / `findOrFail` / `first` / `firstOrFail` / `get` / `all`, plus `count` / `exists` / `sum` / `pluck` / `value`.
 - Mutations do not cache results; they invalidate.
-- **Single-row** mutation → invalidate that record’s find keys only (lists/aggregates may stay stale until TTL or mass flush).
+- **Single-row** mutation → invalidate that record’s find keys only. **List/`where`/`count` caches stay stale** until TTL, mass mutation, `autoCacheFlush()`, or cascade — this is intentional.
 - **Mass** mutation (`where(...)->update/delete/insert/upsert`) → flush all registered keys for the table (+ `$cacheInvalidates`).
 - Invalidation runs **`DB::afterCommit()`** (immediate if not in a transaction).
 - Eager `with` is part of the cache key; relation queries during eager load are **not** cached separately.
 - Any `Cache::store()` works; no tags required (key registry).
+- Manual: `Model::autoCacheForget($id)`, `Model::autoCacheFlush()`, `$model->autoCacheForgetSelf()`.
+
+## Serialization
+
+File/Redis stores serialize Eloquent models. After deploys that change attributes/casts/relations, flush or wait for TTL — stale payloads can break unserialize.
 
 ## Do / Don’t
 
@@ -56,7 +61,8 @@ After requiring the package, run `php artisan boost:update` (or `boost:install`)
 
 - Implement `AutoCacheable` and `use AutoCaches`.
 - Put table names (not model class names) in `$cacheInvalidates`.
-- Use `withoutCache()` when you must read through to the DB without hits.
+- Use `withoutCache()` or `autoCacheFlush()` when a screen must see fresh lists after a one-row edit.
+- Use `autoCacheForget` / `autoCacheFlush` when writes bypass Eloquent.
 
 **Don’t**
 
