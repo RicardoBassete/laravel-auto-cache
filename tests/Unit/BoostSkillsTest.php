@@ -12,6 +12,7 @@ $expected = [
     'laravel-auto-cache-ttl-misses',
     'laravel-auto-cache-bypass',
     'laravel-auto-cache-silent-attributes',
+    'laravel-auto-cache-flush-lists',
     'laravel-auto-cache-pest',
 ];
 

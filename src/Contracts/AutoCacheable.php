@@ -19,4 +19,6 @@ interface AutoCacheable
      * @return list<string>
      */
     public function cacheSilentAttributesList(): array;
+
+    public function shouldFlushListsOnSave(): bool;
 }

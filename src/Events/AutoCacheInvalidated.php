@@ -7,7 +7,7 @@ namespace RicardoBassete\AutoCache\Events;
 final class AutoCacheInvalidated
 {
     /**
-     * @param  'record'|'table'  $scope
+     * @param  'record'|'table'|'lists'  $scope
      */
     public function __construct(
         public string $table,

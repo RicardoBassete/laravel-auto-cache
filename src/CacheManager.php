@@ -193,12 +193,18 @@ final class CacheManager
         $cascade = $model instanceof AutoCacheable
             ? $model->cacheInvalidatesTables()
             : [];
+        $flushLists = $model instanceof AutoCacheable
+            && $model->shouldFlushListsOnSave();
 
-        $this->runAfterCommit(function () use ($model, $table, $cascade, $singleRecord): void {
+        $this->runAfterCommit(function () use ($model, $table, $cascade, $singleRecord, $flushLists): void {
             $key = $model->getKey();
 
             if ($singleRecord && (is_int($key) || is_string($key))) {
                 $this->invalidateRecordNow($table, $key);
+
+                if ($flushLists) {
+                    $this->invalidateListKeysNow($table);
+                }
             } else {
                 $this->invalidateTableNow($table);
             }
@@ -207,6 +213,21 @@ final class CacheManager
                 $this->invalidateTableNow($relatedTable);
             }
         });
+    }
+
+    public function invalidateListKeys(string $table): void
+    {
+        $this->runAfterCommit(function () use ($table): void {
+            $this->invalidateListKeysNow($table);
+        });
+    }
+
+    public function isListCacheKey(string $table, string $key): bool
+    {
+        $base = $this->prefix().':'.$table.':';
+
+        return str_starts_with($key, $base.'all:')
+            || str_starts_with($key, $base.'query:');
     }
 
     public function tableRegistryKey(string $table): string
@@ -251,6 +272,24 @@ final class CacheManager
         $this->removeKeysFromTableRegistry($table, $keys);
 
         Event::dispatch(new AutoCacheInvalidated($table, 'record', $id, $keys));
+    }
+
+    private function invalidateListKeysNow(string $table): void
+    {
+        $registryKey = $this->tableRegistryKey($table);
+        $keys = $this->readRegistry($registryKey);
+        $listKeys = array_values(array_filter(
+            $keys,
+            fn (string $key): bool => $this->isListCacheKey($table, $key),
+        ));
+
+        foreach ($listKeys as $key) {
+            $this->store()->forget($key);
+        }
+
+        $this->removeKeysFromTableRegistry($table, $listKeys);
+
+        Event::dispatch(new AutoCacheInvalidated($table, 'lists', null, $listKeys));
     }
 
     private function invalidateTableNow(string $table): void

@@ -25,6 +25,7 @@ Requires: Laravel 11+ / PHP 8.2+
 | TTL or miss caching | `laravel-auto-cache-ttl-misses` |
 | Bypass cache for a query | `laravel-auto-cache-bypass` |
 | Silent attribute updates | `laravel-auto-cache-silent-attributes` |
+| Flush lists on save | `laravel-auto-cache-flush-lists` |
 | Pest expectations | `laravel-auto-cache-pest` |
 | General behavior / mental model | this skill |
 
@@ -51,7 +52,8 @@ After requiring the package, run `php artisan boost:update` (or `boost:install`)
 - Invalidation runs **`DB::afterCommit()`** (immediate if not in a transaction).
 - Eager `with` is part of the cache key; relation queries during eager load are **not** cached separately.
 - Any `Cache::store()` works; no tags required (key registry).
-- Manual: `Model::autoCacheForget($id)`, `Model::autoCacheFlush()`, `$model->autoCacheForgetSelf()`.
+- Manual: `Model::autoCacheForget($id)`, `Model::autoCacheFlush()`, `Model::autoCacheFlushLists()`, `$model->autoCacheForgetSelf()`.
+- Opt-in `$cacheFlushListsOnSave`: single-row mutations also clear list/query keys (other finds stay).
 
 ## Serialization
 

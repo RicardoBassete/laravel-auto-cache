@@ -19,6 +19,7 @@ use RicardoBassete\AutoCache\Eloquent\CachedBuilder;
  * @property bool $cacheMisses
  * @property list<string> $cacheInvalidates
  * @property list<string> $cacheSilentAttributes
+ * @property bool $cacheFlushListsOnSave
  */
 trait AutoCaches
 {
@@ -95,6 +96,22 @@ trait AutoCaches
     }
 
     /**
+     * Flush list/query/aggregation cache keys for this model's table (find keys stay).
+     */
+    public static function autoCacheFlushLists(): void
+    {
+        /** @var static&Model&AutoCacheable $model */
+        $model = new static;
+        $manager = app(CacheManager::class);
+
+        $manager->invalidateListKeys($model->getTable());
+
+        foreach ($model->cacheInvalidatesTables() as $table) {
+            $manager->invalidateListKeys($table);
+        }
+    }
+
+    /**
      * Forget cached find entries for this model instance.
      */
     public function autoCacheForgetSelf(): void
@@ -159,6 +176,15 @@ trait AutoCaches
         }
 
         return (bool) $this->cacheMisses;
+    }
+
+    public function shouldFlushListsOnSave(): bool
+    {
+        if (! property_exists($this, 'cacheFlushListsOnSave')) {
+            return false;
+        }
+
+        return (bool) $this->cacheFlushListsOnSave;
     }
 
     /**

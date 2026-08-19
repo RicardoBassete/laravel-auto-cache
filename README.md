@@ -19,6 +19,8 @@ class User extends Model implements AutoCacheable
 
 Optional: `$cacheSilentAttributes` — updates that only change those columns skip invalidation (see skill `laravel-auto-cache-silent-attributes`).
 
+Optional: `$cacheFlushListsOnSave = true` — single-row saves also clear list/query caches (see skill `laravel-auto-cache-flush-lists`).
+
 ## Features
 
 - Trait opt-in + custom `CachedBuilder`
@@ -29,7 +31,8 @@ Optional: `$cacheSilentAttributes` — updates that only change those columns sk
 - Single-row mutations invalidate that record only; mass mutations flush the table registry
 - Invalidation deferred with `DB::afterCommit()`
 - `withoutCache()` escape hatch
-- Manual invalidation: `Model::autoCacheForget($id)`, `Model::autoCacheFlush()`, `$model->autoCacheForgetSelf()`
+- Manual invalidation: `Model::autoCacheForget($id)`, `Model::autoCacheFlush()`, `Model::autoCacheFlushLists()`, `$model->autoCacheForgetSelf()`
+- Opt-in `$cacheFlushListsOnSave` to clear list/query caches on single-row mutations
 - Debug helpers: `Model::autoCacheKeys()`, `Model::autoCacheRemember($id, fn)`
 - Observability events: `AutoCacheHit`, `AutoCacheMiss`, `AutoCacheInvalidated`
 - Pest expectations (optional): `toHaveCachedFind` / `toMissCachedFind`
@@ -43,7 +46,7 @@ It does **not** clear:
 - `User::where(...)->get()` / `first()` list caches
 - Aggregations (`count`, `sum`, …)
 
-Those stay until TTL expires, a **mass** mutation runs (`User::query()->where(...)->update()`), `autoCacheFlush()`, or a cascade via `$cacheInvalidates`.
+Those stay until TTL expires, a **mass** mutation runs (`User::query()->where(...)->update()`), `autoCacheFlush()`, `autoCacheFlushLists()`, cascade via `$cacheInvalidates`, or the model opts into `$cacheFlushListsOnSave = true`.
 
 This matches the package domain rules. If a screen must see fresh lists after one-row edits, call `User::autoCacheFlush()`, use `withoutCache()` on that read, or redesign the write as a mass invalidation path.
 
@@ -92,6 +95,7 @@ php artisan vendor:publish --tag=auto-cache-config
 
 ```php
 User::autoCacheForget($user->id);   // find keys for id + cascade tables
+User::autoCacheFlushLists();        // list/query keys only (find keys stay)
 User::autoCacheFlush();             // all keys for users (+ cascade)
 $user->autoCacheForgetSelf();
 ```
@@ -117,6 +121,7 @@ and select this package’s skills/guidelines when prompted. Boost copies skills
 | `laravel-auto-cache-ttl-misses` | `$cacheTtl` / `$cacheMisses` |
 | `laravel-auto-cache-bypass` | `withoutCache()` |
 | `laravel-auto-cache-silent-attributes` | `$cacheSilentAttributes` |
+| `laravel-auto-cache-flush-lists` | `$cacheFlushListsOnSave` / `autoCacheFlushLists()` |
 | `laravel-auto-cache-pest` | Pest `toHaveCachedFind` / `toMissCachedFind` |
 
 Canonical copies for Boost live under `resources/boost/skills/`. Matching files under [`.agents/skills/`](.agents/skills/) stay in sync for agents opened on this package repo.
