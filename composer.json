@@ -1,0 +1,67 @@
+{
+    "name": "ricardobassete/laravel-auto-cache",
+    "description": "Automatic Eloquent model query caching with opt-in trait, key registry invalidation, and after-commit safety.",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Ricardo Bassete",
+            "email": "ricardo@bassete.dev"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "illuminate/cache": "^11.0|^12.0",
+        "illuminate/database": "^11.0|^12.0",
+        "illuminate/support": "^11.0|^12.0"
+    },
+    "require-dev": {
+        "larastan/larastan": "^3.0",
+        "laravel/pint": "^1.18",
+        "orchestra/testbench": "^9.0|^10.0",
+        "pestphp/pest": "^3.0",
+        "pestphp/pest-plugin-laravel": "^3.0",
+        "phpstan/phpstan": "^2.0",
+        "rector/rector": "^2.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "RicardoBassete\\AutoCache\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "RicardoBassete\\AutoCache\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "RicardoBassete\\AutoCache\\AutoCacheServiceProvider"
+            ]
+        }
+    },
+    "scripts": {
+        "test": "pest --coverage --min=80",
+        "analyse": "phpstan analyse",
+        "format": "pint",
+        "refactor": "rector process",
+        "lint": [
+            "@format",
+            "@analyse",
+            "rector process --dry-run"
+        ],
+        "check": [
+            "@lint",
+            "@test"
+        ]
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
