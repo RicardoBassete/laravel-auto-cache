@@ -107,6 +107,41 @@ trait AutoCaches
         static::autoCacheForget($key);
     }
 
+    /**
+     * List registered cache keys for this model's table (debug / introspection).
+     *
+     * @return list<string>
+     */
+    public static function autoCacheKeys(): array
+    {
+        /** @var static&Model $model */
+        $model = new static;
+        $manager = app(CacheManager::class);
+
+        return $manager->readRegistry($manager->tableRegistryKey($model->getTable()));
+    }
+
+    /**
+     * Remember a value under the find/record cache key for the given id.
+     *
+     * @param  list<string>  $eager
+     */
+    public static function autoCacheRemember(int|string $id, callable $callback, array $eager = []): mixed
+    {
+        /** @var static&Model&AutoCacheable $model */
+        $model = new static;
+        $manager = app(CacheManager::class);
+        $key = $manager->recordKey($model->getTable(), $id, $eager);
+
+        return $manager->remember(
+            $key,
+            $model->cacheTtlSeconds(),
+            $model->getTable(),
+            $id,
+            $callback,
+        );
+    }
+
     public function cacheTtlSeconds(): int
     {
         if (! property_exists($this, 'cacheTtl') || $this->cacheTtl === null) {

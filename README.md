@@ -28,6 +28,7 @@ class User extends Model implements AutoCacheable
 - Invalidation deferred with `DB::afterCommit()`
 - `withoutCache()` escape hatch
 - Manual invalidation: `Model::autoCacheForget($id)`, `Model::autoCacheFlush()`, `$model->autoCacheForgetSelf()`
+- Debug helpers: `Model::autoCacheKeys()`, `Model::autoCacheRemember($id, fn)`
 
 ## Important: intentional cache staleness
 
