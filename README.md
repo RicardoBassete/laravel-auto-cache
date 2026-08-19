@@ -39,9 +39,16 @@ Publish config (optional):
 php artisan vendor:publish --tag=auto-cache-config
 ```
 
-## Agent skills
+## Agent skills & Laravel Boost
 
-Cursor/Claude-compatible skills live under [`.agents/skills/`](.agents/skills/):
+Boost discovers package skills from [`resources/boost/skills/`](resources/boost/skills/) and guidelines from [`resources/boost/guidelines/core.blade.php`](resources/boost/guidelines/core.blade.php). After `composer require`, consumers should run:
+
+```bash
+php artisan boost:update
+# or: php artisan boost:install
+```
+
+and select this package’s skills/guidelines when prompted. Boost copies skills into the agent path (e.g. `.agents/skills`, `.cursor/skills`, `.claude/skills`).
 
 | Skill | Use when |
 | --- | --- |
@@ -50,6 +57,8 @@ Cursor/Claude-compatible skills live under [`.agents/skills/`](.agents/skills/):
 | `laravel-auto-cache-cascade` | `$cacheInvalidates` tables |
 | `laravel-auto-cache-ttl-misses` | `$cacheTtl` / `$cacheMisses` |
 | `laravel-auto-cache-bypass` | `withoutCache()` |
+
+Canonical copies for Boost live under `resources/boost/skills/`. Matching files under [`.agents/skills/`](.agents/skills/) stay in sync for agents opened on this package repo.
 
 ## Development
 
