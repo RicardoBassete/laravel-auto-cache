@@ -39,6 +39,18 @@ Publish config (optional):
 php artisan vendor:publish --tag=auto-cache-config
 ```
 
+## Agent skills
+
+Cursor/Claude-compatible skills live under [`.agents/skills/`](.agents/skills/):
+
+| Skill | Use when |
+| --- | --- |
+| `laravel-auto-cache` | General package usage |
+| `laravel-auto-cache-opt-in` | Adding the trait to a model |
+| `laravel-auto-cache-cascade` | `$cacheInvalidates` tables |
+| `laravel-auto-cache-ttl-misses` | `$cacheTtl` / `$cacheMisses` |
+| `laravel-auto-cache-bypass` | `withoutCache()` |
+
 ## Development
 
 Requires PHP with **pcov** or **Xdebug** for coverage (`composer test` enforces ≥ 80%).
