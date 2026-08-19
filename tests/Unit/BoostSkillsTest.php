@@ -14,6 +14,7 @@ $expected = [
     'laravel-auto-cache-silent-attributes',
     'laravel-auto-cache-flush-lists',
     'laravel-auto-cache-pest',
+    'laravel-auto-cache-collector',
 ];
 
 it('exposes Boost third-party skills under resources/boost/skills', function () use ($skillsRoot, $expected): void {

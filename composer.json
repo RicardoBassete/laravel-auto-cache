@@ -35,7 +35,9 @@
         }
     },
     "suggest": {
-        "pestphp/pest": "Required to use AutoCache Pest expectations (toHaveCachedFind / toMissCachedFind)."
+        "pestphp/pest": "Required to use AutoCache Pest expectations (toHaveCachedFind / toMissCachedFind).",
+        "laravel/telescope": "Optional: records AutoCache hit/miss/invalidation in the Telescope Cache watcher when collector.telescope is true.",
+        "barryvdh/laravel-debugbar": "Optional: shows an AutoCache panel when collector.debugbar is true."
     },
     "extra": {
         "laravel": {

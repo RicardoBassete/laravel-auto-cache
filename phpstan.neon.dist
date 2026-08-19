@@ -7,6 +7,9 @@ parameters:
         - src
     excludePaths:
         - src/Pest/Expectations.php
+        - src/Support/TelescopeBridge.php
+        - src/Support/DebugbarBridge.php
+        - src/Debugbar
     tmpDir: .phpstan.cache
     treatPhpDocTypesAsCertain: false
     ignoreErrors:

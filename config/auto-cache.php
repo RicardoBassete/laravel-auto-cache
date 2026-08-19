@@ -47,4 +47,22 @@ return [
 
     'lock_seconds' => (int) env('AUTO_CACHE_LOCK_SECONDS', 5),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Request Collector (Telescope / Debugbar)
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, AutoCacheHit / Miss / Invalidated events are buffered on
+    | AutoCacheCollector for the current request. Optional bridges push the
+    | same data into Laravel Telescope (Cache watcher) and Barryvdh Debugbar
+    | when those packages are installed.
+    |
+    */
+
+    'collector' => [
+        'enabled' => (bool) env('AUTO_CACHE_COLLECTOR', false),
+        'telescope' => (bool) env('AUTO_CACHE_TELESCOPE', true),
+        'debugbar' => (bool) env('AUTO_CACHE_DEBUGBAR', true),
+    ],
+
 ];

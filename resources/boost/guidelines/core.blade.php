@@ -23,3 +23,4 @@ Opt-in Eloquent query caching via `AutoCaches` + `AutoCacheable` (`ricardobasset
 - IMPORTANT: Activate `laravel-auto-cache-silent-attributes` when configuring `$cacheSilentAttributes`.
 - IMPORTANT: Activate `laravel-auto-cache-flush-lists` when configuring `$cacheFlushListsOnSave` or `autoCacheFlushLists()`.
 - IMPORTANT: Activate `laravel-auto-cache-pest` when writing Pest assertions for auto-cache hits/misses.
+- IMPORTANT: Activate `laravel-auto-cache-collector` when enabling the request collector, Telescope, or Debugbar bridges.

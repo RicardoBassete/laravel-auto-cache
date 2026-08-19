@@ -27,6 +27,7 @@ Requires: Laravel 11+ / PHP 8.2+
 | Silent attribute updates | `laravel-auto-cache-silent-attributes` |
 | Flush lists on save | `laravel-auto-cache-flush-lists` |
 | Pest expectations | `laravel-auto-cache-pest` |
+| Request collector / Telescope / Debugbar | `laravel-auto-cache-collector` |
 | General behavior / mental model | this skill |
 
 Read the focused skill before editing; do not invent APIs beyond what those skills document.
