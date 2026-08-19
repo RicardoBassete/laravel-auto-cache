@@ -14,4 +14,9 @@ interface AutoCacheable
      * @return list<string>
      */
     public function cacheInvalidatesTables(): array;
+
+    /**
+     * @return list<string>
+     */
+    public function cacheSilentAttributesList(): array;
 }

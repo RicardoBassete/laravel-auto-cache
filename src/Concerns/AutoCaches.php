@@ -18,6 +18,7 @@ use RicardoBassete\AutoCache\Eloquent\CachedBuilder;
  * @property int|null $cacheTtl
  * @property bool $cacheMisses
  * @property list<string> $cacheInvalidates
+ * @property list<string> $cacheSilentAttributes
  */
 trait AutoCaches
 {
@@ -28,7 +29,7 @@ trait AutoCaches
         });
 
         static::updated(static function (Model $model): void {
-            static::autoCacheInvalidateModel($model, singleRecord: true);
+            static::autoCacheInvalidateModel($model, singleRecord: true, respectSilentAttributes: true);
         });
 
         static::deleted(static function (Model $model): void {
@@ -178,8 +179,60 @@ trait AutoCaches
         return $tables;
     }
 
-    protected static function autoCacheInvalidateModel(Model $model, bool $singleRecord): void
+    /**
+     * @return list<string>
+     */
+    public function cacheSilentAttributesList(): array
     {
+        if (! property_exists($this, 'cacheSilentAttributes')) {
+            return [];
+        }
+
+        $attributes = [];
+
+        foreach ((array) $this->cacheSilentAttributes as $attribute) {
+            $attributes[] = (string) $attribute;
+        }
+
+        return $attributes;
+    }
+
+    protected static function autoCacheInvalidateModel(
+        Model $model,
+        bool $singleRecord,
+        bool $respectSilentAttributes = false,
+    ): void {
+        if ($respectSilentAttributes && static::autoCacheShouldSkipInvalidation($model)) {
+            return;
+        }
+
         app(CacheManager::class)->invalidateModel($model, $singleRecord);
+    }
+
+    protected static function autoCacheShouldSkipInvalidation(Model $model): bool
+    {
+        if (! $model instanceof AutoCacheable) {
+            return false;
+        }
+
+        $silent = $model->cacheSilentAttributesList();
+
+        if ($silent === []) {
+            return false;
+        }
+
+        $changed = array_keys($model->getChanges());
+
+        if ($changed === []) {
+            return false;
+        }
+
+        foreach ($changed as $attribute) {
+            if (! in_array($attribute, $silent, true)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

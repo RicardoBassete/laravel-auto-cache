@@ -17,6 +17,8 @@ class User extends Model implements AutoCacheable
 }
 ```
 
+Optional: `$cacheSilentAttributes` — updates that only change those columns skip invalidation (see skill `laravel-auto-cache-silent-attributes`).
+
 ## Features
 
 - Trait opt-in + custom `CachedBuilder`
@@ -113,6 +115,7 @@ and select this package’s skills/guidelines when prompted. Boost copies skills
 | `laravel-auto-cache-cascade` | `$cacheInvalidates` tables |
 | `laravel-auto-cache-ttl-misses` | `$cacheTtl` / `$cacheMisses` |
 | `laravel-auto-cache-bypass` | `withoutCache()` |
+| `laravel-auto-cache-silent-attributes` | `$cacheSilentAttributes` |
 
 Canonical copies for Boost live under `resources/boost/skills/`. Matching files under [`.agents/skills/`](.agents/skills/) stay in sync for agents opened on this package repo.
 

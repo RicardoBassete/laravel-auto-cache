@@ -20,3 +20,4 @@ Opt-in Eloquent query caching via `AutoCaches` + `AutoCacheable` (`ricardobasset
 - IMPORTANT: Activate `laravel-auto-cache-cascade` when configuring `$cacheInvalidates`.
 - IMPORTANT: Activate `laravel-auto-cache-ttl-misses` when setting `$cacheTtl` or `$cacheMisses`.
 - IMPORTANT: Activate `laravel-auto-cache-bypass` when using `withoutCache()` / `withCache()`.
+- IMPORTANT: Activate `laravel-auto-cache-silent-attributes` when configuring `$cacheSilentAttributes`.
