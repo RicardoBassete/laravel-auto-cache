@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace RicardoBassete\AutoCache;
 
+use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use RicardoBassete\AutoCache\Concerns\AutoCaches;
+use RicardoBassete\AutoCache\Contracts\AutoCacheable;
 use Throwable;
 
 final class CacheManager
@@ -17,22 +18,32 @@ final class CacheManager
     {
         $name = config('auto-cache.store');
 
-        return $name ? Cache::store($name) : Cache::store();
+        if (is_string($name) && $name !== '') {
+            return Cache::store($name);
+        }
+
+        return Cache::store();
     }
 
     public function prefix(): string
     {
-        return (string) config('auto-cache.prefix', 'auto-cache');
+        $prefix = config('auto-cache.prefix', 'auto-cache');
+
+        return is_string($prefix) ? $prefix : 'auto-cache';
     }
 
     public function defaultTtl(): int
     {
-        return (int) config('auto-cache.ttl', 3600);
+        $ttl = config('auto-cache.ttl', 3600);
+
+        return is_numeric($ttl) ? (int) $ttl : 3600;
     }
 
     public function lockSeconds(): int
     {
-        return (int) config('auto-cache.lock_seconds', 5);
+        $seconds = config('auto-cache.lock_seconds', 5);
+
+        return is_numeric($seconds) ? (int) $seconds : 5;
     }
 
     /**
@@ -53,6 +64,7 @@ final class CacheManager
 
     /**
      * @param  list<string>  $eager
+     * @param  array<int|string, mixed>  $bindings
      */
     public function queryKey(string $table, string $sql, array $bindings, array $eager = []): string
     {
@@ -74,34 +86,33 @@ final class CacheManager
 
     public function remember(string $key, int $ttl, string $table, int|string|null $recordId, callable $callback): mixed
     {
-        $store = $this->store();
-
-        if ($store->has($key)) {
-            return $store->get($key);
+        if ($this->has($key)) {
+            return $this->get($key);
         }
 
         $value = $callback();
 
-        $store->put($key, $value, $ttl);
-        $this->registerKey($table, $key, $recordId);
+        $this->put($key, $value, $ttl, $table, $recordId);
 
         return $value;
     }
 
     public function put(string $key, mixed $value, int $ttl, string $table, int|string|null $recordId): void
     {
-        $this->store()->put($key, $value, $ttl);
+        $this->store()->put($key, new CacheEntry($value), $ttl);
         $this->registerKey($table, $key, $recordId);
     }
 
     public function has(string $key): bool
     {
-        return $this->store()->has($key);
+        return $this->store()->get($key) instanceof CacheEntry;
     }
 
     public function get(string $key): mixed
     {
-        return $this->store()->get($key);
+        $entry = $this->store()->get($key);
+
+        return $entry instanceof CacheEntry ? $entry->value : null;
     }
 
     public function forget(string $key): void
@@ -133,29 +144,14 @@ final class CacheManager
     public function invalidateRecord(string $table, int|string $id): void
     {
         $this->runAfterCommit(function () use ($table, $id): void {
-            $registryKey = $this->recordRegistryKey($table, $id);
-            $keys = $this->readRegistry($registryKey);
-
-            foreach ($keys as $key) {
-                $this->store()->forget($key);
-            }
-
-            $this->store()->forget($registryKey);
-            $this->removeKeysFromTableRegistry($table, $keys);
+            $this->invalidateRecordNow($table, $id);
         });
     }
 
     public function invalidateTable(string $table): void
     {
         $this->runAfterCommit(function () use ($table): void {
-            $registryKey = $this->tableRegistryKey($table);
-            $keys = $this->readRegistry($registryKey);
-
-            foreach ($keys as $key) {
-                $this->store()->forget($key);
-            }
-
-            $this->store()->forget($registryKey);
+            $this->invalidateTableNow($table);
         });
     }
 
@@ -172,17 +168,15 @@ final class CacheManager
     public function invalidateModel(Model $model, bool $singleRecord = true): void
     {
         $table = $model->getTable();
-        /** @var list<string> $cascade */
-        $cascade = [];
-
-        if (in_array(AutoCaches::class, class_uses_recursive($model), true)) {
-            /** @var Model&object{cacheInvalidatesTables(): list<string>} $model */
-            $cascade = $model->cacheInvalidatesTables();
-        }
+        $cascade = $model instanceof AutoCacheable
+            ? $model->cacheInvalidatesTables()
+            : [];
 
         $this->runAfterCommit(function () use ($model, $table, $cascade, $singleRecord): void {
-            if ($singleRecord && $model->getKey() !== null) {
-                $this->invalidateRecordNow($table, $model->getKey());
+            $key = $model->getKey();
+
+            if ($singleRecord && (is_int($key) || is_string($key))) {
+                $this->invalidateRecordNow($table, $key);
             } else {
                 $this->invalidateTableNow($table);
             }
@@ -217,7 +211,9 @@ final class CacheManager
         /** @var list<string> $normalized */
         $normalized = array_values(array_filter($keys, is_string(...)));
 
-        return $normalized;
+        // Copy so ArrayStore (non-serializing) cannot share mutable references
+        // between table/record registries.
+        return [...$normalized];
     }
 
     private function invalidateRecordNow(string $table, int|string $id): void
@@ -254,12 +250,10 @@ final class CacheManager
             return;
         }
 
-        $this->mutateRegistry($this->tableRegistryKey($table), function (array $keys) use ($keysToRemove): array {
-            return array_values(array_filter(
-                $keys,
-                static fn (string $key): bool => ! in_array($key, $keysToRemove, true),
-            ));
-        });
+        $this->mutateRegistry($this->tableRegistryKey($table), fn (array $keys): array => array_values(array_filter(
+            $keys,
+            static fn (string $key): bool => ! in_array($key, $keysToRemove, true),
+        )));
     }
 
     /**
@@ -273,12 +267,20 @@ final class CacheManager
         $apply = function () use ($store, $registryKey, $callback, $ttl): void {
             /** @var list<string> $current */
             $current = $this->readRegistry($registryKey);
-            $updated = $callback($current);
+            $updated = [...$callback($current)];
             $store->put($registryKey, $updated, $ttl);
         };
 
         try {
-            $lock = $store->lock($registryKey.':lock', $this->lockSeconds());
+            $driver = $store->getStore();
+
+            if (! $driver instanceof LockProvider) {
+                $apply();
+
+                return;
+            }
+
+            $lock = $driver->lock($registryKey.':lock', $this->lockSeconds());
             $lock->block($this->lockSeconds(), $apply);
         } catch (Throwable) {
             $apply();

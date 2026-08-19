@@ -6,3 +6,9 @@ parameters:
     paths:
         - src
     tmpDir: .phpstan.cache
+    treatPhpDocTypesAsCertain: false
+    ignoreErrors:
+        # Eloquent Builder overrides cannot preserve TModel through parent:: calls at level 10.
+        -
+            identifier: return.type
+            path: src/Eloquent/CachedBuilder.php

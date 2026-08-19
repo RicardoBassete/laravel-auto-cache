@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace RicardoBassete\AutoCache\Concerns;
 
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use RicardoBassete\AutoCache\CacheManager;
+use RicardoBassete\AutoCache\Contracts\AutoCacheable;
 use RicardoBassete\AutoCache\Eloquent\CachedBuilder;
 
 /**
  * @mixin Model
+ *
+ * @phpstan-require-implements AutoCacheable
  *
  * @property int|null $cacheTtl
  * @property bool $cacheMisses
@@ -43,8 +46,8 @@ trait AutoCaches
     }
 
     /**
-     * @param  \Illuminate\Database\Query\Builder  $query
-     * @return CachedBuilder<static>
+     * @param  QueryBuilder  $query
+     * @return CachedBuilder<Model>
      */
     public function newEloquentBuilder($query): CachedBuilder
     {
@@ -52,11 +55,11 @@ trait AutoCaches
     }
 
     /**
-     * @return CachedBuilder<static>
+     * @return CachedBuilder<Model>
      */
     public static function withoutCache(): CachedBuilder
     {
-        /** @var CachedBuilder<static> $builder */
+        /** @var CachedBuilder<Model> $builder */
         $builder = static::query();
 
         return $builder->withoutCache();
@@ -64,20 +67,20 @@ trait AutoCaches
 
     public function cacheTtlSeconds(): int
     {
-        if (property_exists($this, 'cacheTtl') && $this->cacheTtl !== null) {
-            return (int) $this->cacheTtl;
+        if (! property_exists($this, 'cacheTtl') || $this->cacheTtl === null) {
+            return app(CacheManager::class)->defaultTtl();
         }
 
-        return app(CacheManager::class)->defaultTtl();
+        return (int) $this->cacheTtl;
     }
 
     public function shouldCacheMisses(): bool
     {
-        if (property_exists($this, 'cacheMisses')) {
-            return (bool) $this->cacheMisses;
+        if (! property_exists($this, 'cacheMisses')) {
+            return false;
         }
 
-        return false;
+        return (bool) $this->cacheMisses;
     }
 
     /**
@@ -89,8 +92,11 @@ trait AutoCaches
             return [];
         }
 
-        /** @var list<string> $tables */
-        $tables = array_values(array_map(strval(...), (array) $this->cacheInvalidates));
+        $tables = [];
+
+        foreach ((array) $this->cacheInvalidates as $table) {
+            $tables[] = (string) $table;
+        }
 
         return $tables;
     }

@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace RicardoBassete\AutoCache\Eloquent;
 
+use Closure;
+use Illuminate\Contracts\Database\Query\Expression;
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use RicardoBassete\AutoCache\CacheContext;
 use RicardoBassete\AutoCache\CacheManager;
-use RicardoBassete\AutoCache\Concerns\AutoCaches;
+use RicardoBassete\AutoCache\Contracts\AutoCacheable;
 
 /**
  * @template TModel of Model
@@ -34,13 +38,37 @@ class CachedBuilder extends Builder
         return $this;
     }
 
-    /**
-     * @param  array<int, mixed>|int|string  $id
-     * @param  list<string>  $columns
-     */
-    public function find($id, $columns = ['*']): Model|EloquentCollection|null
+    public function cachingEnabled(): bool
     {
-        if (! $this->cachingEnabled || $this->isWriteQuery() || is_array($id)) {
+        return $this->cachingEnabled && ! CacheContext::suppressed();
+    }
+
+    /**
+     * @param  array<int, TModel>  $models
+     * @return array<int, TModel>
+     */
+    protected function eagerLoadRelation(array $models, $name, Closure $constraints)
+    {
+        /** @var array<int, TModel> $loaded */
+        $loaded = CacheContext::withoutCaching(
+            fn (): array => parent::eagerLoadRelation($models, $name, $constraints),
+        );
+
+        return $loaded;
+    }
+
+    /**
+     * @param  array<int, mixed>|Arrayable<int, mixed>|int|string  $id
+     * @param  list<string>  $columns
+     * @return ($id is array ? EloquentCollection<int, TModel> : TModel|null)
+     */
+    public function find($id, $columns = ['*'])
+    {
+        if (is_array($id) || $id instanceof Arrayable) {
+            return parent::find($id, $columns);
+        }
+
+        if (! $this->cachingEnabled()) {
             return parent::find($id, $columns);
         }
 
@@ -50,20 +78,22 @@ class CachedBuilder extends Builder
         $key = $manager->recordKey($model->getTable(), $id, $eager);
 
         if ($manager->has($key)) {
-            /** @var Model|null $cached */
+            /** @var TModel|null $cached */
             $cached = $manager->get($key);
 
             return $cached;
         }
 
-        /** @var Model|null $result */
-        $result = parent::find($id, $columns);
+        $result = $this->runWithoutCaching(fn () => parent::find($id, $columns));
 
-        if ($this->shouldStore($result)) {
-            $manager->put($key, $result, $this->ttl(), $model->getTable(), $id);
+        /** @var TModel|null $modelResult */
+        $modelResult = is_object($result) || $result === null ? $result : null;
+
+        if ($this->shouldStore($modelResult)) {
+            $manager->put($key, $modelResult, $this->ttl(), $model->getTable(), $id);
         }
 
-        return $result;
+        return $modelResult;
     }
 
     /**
@@ -72,7 +102,7 @@ class CachedBuilder extends Builder
      */
     public function get($columns = ['*']): EloquentCollection
     {
-        if (! $this->cachingEnabled || $this->isWriteQuery()) {
+        if (! $this->cachingEnabled()) {
             return parent::get($columns);
         }
 
@@ -88,7 +118,8 @@ class CachedBuilder extends Builder
             return $cached;
         }
 
-        $result = parent::get($columns);
+        /** @var EloquentCollection<int, TModel> $result */
+        $result = $this->runWithoutCaching(fn (): EloquentCollection => parent::get($columns));
 
         if ($this->shouldStore($result)) {
             $manager->put($key, $result, $this->ttl(), $model->getTable(), null);
@@ -99,10 +130,11 @@ class CachedBuilder extends Builder
 
     /**
      * @param  list<string>  $columns
+     * @return TModel|null
      */
-    public function first($columns = ['*']): ?Model
+    public function first($columns = ['*'])
     {
-        if (! $this->cachingEnabled || $this->isWriteQuery()) {
+        if (! $this->cachingEnabled()) {
             return parent::first($columns);
         }
 
@@ -112,17 +144,24 @@ class CachedBuilder extends Builder
         $key = $this->resolveQueryKey($manager, $model, $eager, 'first');
 
         if ($manager->has($key)) {
-            /** @var Model|null $cached */
+            /** @var TModel|null $cached */
             $cached = $manager->get($key);
 
             return $cached;
         }
 
-        $result = parent::first($columns);
+        /** @var TModel|null $result */
+        $result = $this->runWithoutCaching(fn () => parent::first($columns));
 
         if ($this->shouldStore($result)) {
             $recordId = $result?->getKey();
-            $manager->put($key, $result, $this->ttl(), $model->getTable(), $recordId);
+            $manager->put(
+                $key,
+                $result,
+                $this->ttl(),
+                $model->getTable(),
+                is_int($recordId) || is_string($recordId) ? $recordId : null,
+            );
         }
 
         return $result;
@@ -130,25 +169,25 @@ class CachedBuilder extends Builder
 
     public function value($column): mixed
     {
-        if (! $this->cachingEnabled) {
+        if (! $this->cachingEnabled()) {
             return parent::value($column);
         }
 
-        return $this->rememberScalar('value:'.$column, fn (): mixed => parent::value($column));
+        return $this->rememberScalar('value:'.$this->stringifyColumn($column), fn (): mixed => parent::value($column));
     }
 
     /**
-     * @param  string|\Illuminate\Contracts\Database\Query\Expression  $column
+     * @param  string|Expression  $column
      * @param  string|null  $key
      * @return Collection<array-key, mixed>
      */
     public function pluck($column, $key = null): Collection
     {
-        if (! $this->cachingEnabled) {
+        if (! $this->cachingEnabled()) {
             return parent::pluck($column, $key);
         }
 
-        $suffix = 'pluck:'.(string) $column.':'.(string) $key;
+        $suffix = 'pluck:'.$this->stringifyColumn($column).':'.($key ?? '');
 
         /** @var Collection<array-key, mixed> $result */
         $result = $this->rememberScalar($suffix, fn (): Collection => parent::pluck($column, $key));
@@ -157,30 +196,47 @@ class CachedBuilder extends Builder
     }
 
     /**
-     * @param  \Illuminate\Contracts\Database\Query\Expression|string  $column
+     * @param  Expression|string  $columns
      */
-    public function aggregate($function, $columns = ['*']): mixed
+    public function count($columns = '*'): int
     {
-        if (! $this->cachingEnabled) {
-            return parent::aggregate($function, $columns);
+        if (! $this->cachingEnabled()) {
+            return (int) $this->toBase()->count($columns);
         }
 
-        $columnList = is_array($columns) ? implode(',', $columns) : (string) $columns;
-        $suffix = 'aggregate:'.$function.':'.$columnList;
+        $counted = $this->rememberScalar(
+            'count:'.$this->stringifyColumn($columns),
+            fn (): mixed => $this->toBase()->count($columns),
+        );
 
-        return $this->rememberScalar($suffix, fn (): mixed => parent::aggregate($function, $columns));
+        return is_numeric($counted) ? (int) $counted : 0;
+    }
+
+    /**
+     * @param  Expression|string  $column
+     */
+    public function sum($column): mixed
+    {
+        if (! $this->cachingEnabled()) {
+            return $this->toBase()->sum($column);
+        }
+
+        return $this->rememberScalar(
+            'sum:'.$this->stringifyColumn($column),
+            fn (): mixed => $this->toBase()->sum($column),
+        );
     }
 
     public function exists(): bool
     {
-        if (! $this->cachingEnabled) {
-            return parent::exists();
+        if (! $this->cachingEnabled()) {
+            return $this->toBase()->exists();
         }
 
-        /** @var bool $result */
-        $result = $this->rememberScalar('exists', fn (): bool => parent::exists());
-
-        return $result;
+        return (bool) $this->rememberScalar(
+            'exists',
+            fn (): bool => $this->toBase()->exists(),
+        );
     }
 
     /**
@@ -215,7 +271,7 @@ class CachedBuilder extends Builder
      */
     public function insert(array $values): bool
     {
-        $result = parent::insert($values);
+        $result = $this->toBase()->insert($values);
         $this->invalidateAfterMassMutation();
 
         return $result;
@@ -243,8 +299,7 @@ class CachedBuilder extends Builder
     {
         $model = $this->getModel();
 
-        if ($this->modelUsesAutoCache($model)) {
-            /** @var Model&object{cacheTtlSeconds(): int} $model */
+        if ($model instanceof AutoCacheable) {
             return $model->cacheTtlSeconds();
         }
 
@@ -254,15 +309,11 @@ class CachedBuilder extends Builder
     protected function shouldStore(mixed $result): bool
     {
         $model = $this->getModel();
-        $cacheMisses = $this->modelUsesAutoCache($model)
+        $cacheMisses = $model instanceof AutoCacheable
             ? $model->shouldCacheMisses()
             : false;
 
-        if ($result === null) {
-            return $cacheMisses;
-        }
-
-        if ($result === false) {
+        if ($result === null || $result === false) {
             return $cacheMisses;
         }
 
@@ -292,6 +343,7 @@ class CachedBuilder extends Builder
     {
         $base = $this->toBase();
         $sql = $base->toSql().'|'.$suffix;
+        /** @var array<int|string, mixed> $bindings */
         $bindings = $base->getBindings();
 
         return $manager->queryKey($model->getTable(), $sql, $bindings, $eager);
@@ -299,14 +351,33 @@ class CachedBuilder extends Builder
 
     protected function isFullTableQuery(): bool
     {
-        return $this->wheres === []
-            && $this->query->wheres === []
-            && $this->query->joins === null
-            && blank($this->query->groups)
-            && blank($this->query->havings)
-            && blank($this->query->orders)
-            && $this->query->limit === null
-            && $this->query->offset === null;
+        $query = $this->getQuery();
+
+        return $query->wheres === []
+            && ($query->joins === [] || $query->joins === null)
+            && blank($query->groups)
+            && blank($query->havings)
+            && blank($query->orders)
+            && $query->limit === null
+            && $query->offset === null;
+    }
+
+    /**
+     * @template TReturn
+     *
+     * @param  callable(): TReturn  $callback
+     * @return TReturn
+     */
+    protected function runWithoutCaching(callable $callback): mixed
+    {
+        $previous = $this->cachingEnabled;
+        $this->cachingEnabled = false;
+
+        try {
+            return $callback();
+        } finally {
+            $this->cachingEnabled = $previous;
+        }
     }
 
     /**
@@ -328,7 +399,7 @@ class CachedBuilder extends Builder
             return $manager->get($key);
         }
 
-        $result = $callback();
+        $result = $this->runWithoutCaching($callback);
 
         if ($this->shouldStore($result)) {
             $manager->put($key, $result, $this->ttl(), $model->getTable(), null);
@@ -339,31 +410,80 @@ class CachedBuilder extends Builder
 
     protected function invalidateAfterMassMutation(): void
     {
-        $model = $this->getModel();
-        $manager = $this->manager();
-        $tables = [$model->getTable()];
-
-        if ($this->modelUsesAutoCache($model)) {
-            $tables = array_merge($tables, $model->cacheInvalidatesTables());
+        // Single-row model saves (performUpdate / soft delete) also call
+        // Builder::update/delete with a primary-key where. Model events already
+        // invalidate that record — skip mass flush here.
+        if ($this->isSingleRecordMutationQuery()) {
+            return;
         }
 
-        $manager->invalidateTables($tables);
-    }
+        $model = $this->getModel();
+        $tables = [$model->getTable()];
 
-    protected function isWriteQuery(): bool
-    {
-        return false;
+        if ($model instanceof AutoCacheable) {
+            $tables = array_values(array_unique([
+                ...$tables,
+                ...$model->cacheInvalidatesTables(),
+            ]));
+        }
+
+        $this->manager()->invalidateTables($tables);
     }
 
     /**
-     * @phpstan-assert-if-true Model&object{
-     *     cacheTtlSeconds(): int,
-     *     shouldCacheMisses(): bool,
-     *     cacheInvalidatesTables(): list<string>
-     * } $model
+     * Detect PK-equality mutations produced by Model::performUpdate / SoftDeletes.
      */
-    protected function modelUsesAutoCache(Model $model): bool
+    protected function isSingleRecordMutationQuery(): bool
     {
-        return in_array(AutoCaches::class, class_uses_recursive($model), true);
+        $model = $this->getModel();
+        $keyName = $model->getKeyName();
+        $qualifiedKeyName = $model->getQualifiedKeyName();
+        $wheres = $this->getQuery()->wheres;
+
+        $relevant = [];
+
+        foreach ($wheres as $where) {
+            if (! is_array($where)) {
+                continue;
+            }
+
+            $type = $where['type'] ?? '';
+            $column = $where['column'] ?? '';
+
+            if ($type === 'Null' && is_string($column) && str_ends_with($column, 'deleted_at')) {
+                continue;
+            }
+
+            $relevant[] = $where;
+        }
+
+        if (count($relevant) !== 1) {
+            return false;
+        }
+
+        $where = $relevant[0];
+        $column = $where['column'] ?? null;
+        $operator = $where['operator'] ?? null;
+        $value = $where['value'] ?? null;
+
+        return ($where['type'] ?? null) === 'Basic'
+            && ($column === $keyName || $column === $qualifiedKeyName)
+            && $operator === '='
+            && ! is_array($value);
+    }
+
+    protected function stringifyColumn(mixed $column): string
+    {
+        if ($column instanceof Expression) {
+            $value = $column->getValue($this->getGrammar());
+
+            return is_string($value) ? $value : md5(serialize($value));
+        }
+
+        if (is_string($column)) {
+            return $column;
+        }
+
+        return md5(serialize($column));
     }
 }

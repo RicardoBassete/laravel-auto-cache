@@ -8,3 +8,4 @@
 *.swp
 .DS_Store
 .phpstan.cache
+/storage

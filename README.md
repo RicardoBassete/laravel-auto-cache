@@ -4,8 +4,9 @@ Opt-in Eloquent query caching for Laravel 11+.
 
 ```php
 use RicardoBassete\AutoCache\Concerns\AutoCaches;
+use RicardoBassete\AutoCache\Contracts\AutoCacheable;
 
-class User extends Model
+class User extends Model implements AutoCacheable
 {
     use AutoCaches;
 
@@ -40,10 +41,14 @@ php artisan vendor:publish --tag=auto-cache-config
 
 ## Development
 
+Requires PHP with **pcov** or **Xdebug** for coverage (`composer test` enforces ≥ 80%).
+
 ```bash
 composer install
 composer check   # pint + phpstan + rector dry-run + pest (coverage ≥ 80%)
 ```
+
+Without a coverage driver, run `./vendor/bin/pest` directly.
 
 ## License
 
