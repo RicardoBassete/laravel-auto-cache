@@ -9,7 +9,11 @@ use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use RicardoBassete\AutoCache\Contracts\AutoCacheable;
+use RicardoBassete\AutoCache\Events\AutoCacheHit;
+use RicardoBassete\AutoCache\Events\AutoCacheInvalidated;
+use RicardoBassete\AutoCache\Events\AutoCacheMiss;
 use Throwable;
 
 final class CacheManager
@@ -86,8 +90,10 @@ final class CacheManager
 
     public function remember(string $key, int $ttl, string $table, int|string|null $recordId, callable $callback): mixed
     {
-        if ($this->has($key)) {
-            return $this->get($key);
+        [$hit, $cached] = $this->attempt($key, $table, $recordId);
+
+        if ($hit) {
+            return $cached;
         }
 
         $value = $callback();
@@ -95,6 +101,22 @@ final class CacheManager
         $this->put($key, $value, $ttl, $table, $recordId);
 
         return $value;
+    }
+
+    /**
+     * @return array{0: bool, 1: mixed}
+     */
+    public function attempt(string $key, string $table, int|string|null $recordId = null): array
+    {
+        if ($this->has($key)) {
+            Event::dispatch(new AutoCacheHit($key, $table, $recordId));
+
+            return [true, $this->get($key)];
+        }
+
+        Event::dispatch(new AutoCacheMiss($key, $table, $recordId));
+
+        return [false, null];
     }
 
     public function put(string $key, mixed $value, int $ttl, string $table, int|string|null $recordId): void
@@ -227,6 +249,8 @@ final class CacheManager
 
         $this->store()->forget($registryKey);
         $this->removeKeysFromTableRegistry($table, $keys);
+
+        Event::dispatch(new AutoCacheInvalidated($table, 'record', $id, $keys));
     }
 
     private function invalidateTableNow(string $table): void
@@ -239,6 +263,8 @@ final class CacheManager
         }
 
         $this->store()->forget($registryKey);
+
+        Event::dispatch(new AutoCacheInvalidated($table, 'table', null, $keys));
     }
 
     /**

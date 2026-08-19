@@ -29,6 +29,7 @@ class User extends Model implements AutoCacheable
 - `withoutCache()` escape hatch
 - Manual invalidation: `Model::autoCacheForget($id)`, `Model::autoCacheFlush()`, `$model->autoCacheForgetSelf()`
 - Debug helpers: `Model::autoCacheKeys()`, `Model::autoCacheRemember($id, fn)`
+- Observability events: `AutoCacheHit`, `AutoCacheMiss`, `AutoCacheInvalidated`
 
 ## Important: intentional cache staleness
 

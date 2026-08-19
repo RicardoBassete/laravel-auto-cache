@@ -77,9 +77,10 @@ class CachedBuilder extends Builder
         $eager = $this->eagerNames();
         $key = $manager->recordKey($model->getTable(), $id, $eager);
 
-        if ($manager->has($key)) {
+        [$hit, $cached] = $manager->attempt($key, $model->getTable(), $id);
+
+        if ($hit) {
             /** @var TModel|null $cached */
-            $cached = $manager->get($key);
 
             return $cached;
         }
@@ -131,9 +132,10 @@ class CachedBuilder extends Builder
 
             $key = $manager->recordKey($table, $id, $eager);
 
-            if ($manager->has($key)) {
+            [$hit, $cached] = $manager->attempt($key, $table, $id);
+
+            if ($hit) {
                 /** @var TModel|null $cached */
-                $cached = $manager->get($key);
                 $resolved[$id] = $cached;
 
                 continue;
@@ -212,9 +214,10 @@ class CachedBuilder extends Builder
         $eager = $this->eagerNames();
         $key = $this->resolveCollectionKey($manager, $model, $eager);
 
-        if ($manager->has($key)) {
+        [$hit, $cached] = $manager->attempt($key, $model->getTable());
+
+        if ($hit) {
             /** @var EloquentCollection<int, TModel> $cached */
-            $cached = $manager->get($key);
 
             return $cached;
         }
@@ -244,9 +247,10 @@ class CachedBuilder extends Builder
         $eager = $this->eagerNames();
         $key = $this->resolveQueryKey($manager, $model, $eager, 'first');
 
-        if ($manager->has($key)) {
+        [$hit, $cached] = $manager->attempt($key, $model->getTable());
+
+        if ($hit) {
             /** @var TModel|null $cached */
-            $cached = $manager->get($key);
 
             return $cached;
         }
@@ -496,8 +500,10 @@ class CachedBuilder extends Builder
         $eager = $this->eagerNames();
         $key = $this->resolveQueryKey($manager, $model, $eager, $suffix);
 
-        if ($manager->has($key)) {
-            return $manager->get($key);
+        [$hit, $cached] = $manager->attempt($key, $model->getTable());
+
+        if ($hit) {
+            return $cached;
         }
 
         $result = $this->runWithoutCaching($callback);
