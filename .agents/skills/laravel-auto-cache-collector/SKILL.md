@@ -15,12 +15,12 @@ metadata:
 
 ```env
 AUTO_CACHE_COLLECTOR=true
-# optional bridges (default true when collector is on and packages exist):
+# optional bridges (default true when packages exist):
 AUTO_CACHE_TELESCOPE=true
 AUTO_CACHE_DEBUGBAR=true
 ```
 
-Or `config/auto-cache.php` → `collector.enabled`.
+Or `config/auto-cache.php` → `collector.enabled` / `collector.telescope` / `collector.debugbar`.
 
 ## In-request API
 
@@ -32,14 +32,21 @@ $collector->hits();
 $collector->misses();
 $collector->invalidations();
 $collector->entries();
+$collector->flush(); // clear buffer (e.g. between assertions)
 ```
 
 ## Integrations
 
-- **Telescope** (optional): when `laravel/telescope` is installed and recording, events are pushed via `Telescope::recordCache` (type hit/miss/forget, `value.source = auto-cache`).
-- **Debugbar** (optional): when `barryvdh/laravel-debugbar` is installed, an `auto-cache` panel is registered automatically.
+- **Telescope** (optional suggest): when `laravel/telescope` is installed and recording, events are pushed via `Telescope::recordCache` (type `hit` / `miss` / `forget`, `value.source = auto-cache`).
+- **Debugbar** (optional suggest): when `barryvdh/laravel-debugbar` is installed and collector is enabled, an `auto-cache` panel is registered on boot.
+
+## Events (always)
+
+Collector is optional. Events always fire:
+
+- `AutoCacheHit` / `AutoCacheMiss` / `AutoCacheInvalidated` (`scope`: `record` \| `table` \| `lists`)
 
 ## Related
 
 - Overview: `laravel-auto-cache`
-- Events are always dispatched regardless of collector (`AutoCacheHit` / `Miss` / `Invalidated`)
+- Artisan flush: `laravel-auto-cache-artisan-flush`

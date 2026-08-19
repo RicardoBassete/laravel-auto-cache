@@ -11,7 +11,7 @@ metadata:
 
 # Pest expectations
 
-Requires `pestphp/pest`. The package registers a Pest plugin via `extra.pest.plugins`.
+Requires `pestphp/pest`. The package registers a Bootable Pest plugin via `composer.json` → `extra.pest.plugins` (`RicardoBassete\AutoCache\Pest\Plugin`).
 
 ## Usage
 
@@ -32,8 +32,10 @@ expect(User::class)->toHaveCachedFind($id, ['posts']);
 
 - Value must be a **Model class-string**, not an instance.
 - These check the **record find key** (table + id + with hash), not list/query keys.
+- To prove staleness: warm find → `DB::table(...)->update(...)` → still `toHaveCachedFind` and stale attributes → Eloquent mutation → `toMissCachedFind` then fresh find.
 
 ## Related
 
 - Overview: `laravel-auto-cache`
 - Bypass: `laravel-auto-cache-bypass`
+- Silent attributes: `laravel-auto-cache-silent-attributes`

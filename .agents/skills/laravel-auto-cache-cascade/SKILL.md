@@ -13,9 +13,11 @@ metadata:
 
 ## Rule
 
-On mutation of model **A**, after invalidating A’s own cache (record or table), also flush the **full key registry** for each table listed in A’s `$cacheInvalidates`.
+On mutation of model **A**, after invalidating A’s own cache (record and/or lists, depending on flags), also flush the **full key registry** for each table listed in A’s `$cacheInvalidates`.
 
 Values are **table names** (e.g. `users`), not FQCNs.
+
+Cascade also applies to manual `autoCacheForget` / `autoCacheFlush` / `autoCacheFlushLists` on the mutating model.
 
 ## When to add an entry
 
@@ -62,4 +64,5 @@ class Post extends Model implements AutoCacheable
 ## Related
 
 - Opt-in: `laravel-auto-cache-opt-in`
+- Flush lists: `laravel-auto-cache-flush-lists`
 - Overview: `laravel-auto-cache`

@@ -17,7 +17,7 @@ metadata:
 2. On the Eloquent model:
    - `implements AutoCacheable`
    - `use AutoCaches`
-   - Declare the three optional properties (even if defaults) for clarity.
+   - Declare optional properties you need (defaults are fine if omitted).
 3. Do **not** extend a custom base model unless the app already has one; trait opt-in is the supported path.
 4. If the model already defines `newEloquentBuilder()`, stop and reconcile — `AutoCaches` provides one returning `CachedBuilder`.
 
@@ -32,12 +32,17 @@ class Order extends Model implements AutoCacheable
 {
     use AutoCaches;
 
-    protected ?int $cacheTtl = null;        // null => config auto-cache.ttl (3600)
-    protected bool $cacheMisses = false;  // default: do not cache null/empty/false
+    protected ?int $cacheTtl = null;                 // null => config auto-cache.ttl (3600)
+    protected bool $cacheMisses = false;             // default: do not cache null/empty/false
     /** @var list<string> */
-    protected array $cacheInvalidates = []; // table names to flush on mutation
+    protected array $cacheInvalidates = [];          // table names to flush on mutation
+    /** @var list<string> */
+    protected array $cacheSilentAttributes = [];     // cosmetic cols — skip invalidation on updated
+    protected bool $cacheFlushListsOnSave = false;   // also clear list/query keys on single-row save
 }
 ```
+
+Only set non-defaults when needed; see focused skills for each property.
 
 ## Checklist
 
@@ -45,10 +50,15 @@ class Order extends Model implements AutoCacheable
 - [ ] No conflicting `newEloquentBuilder()`
 - [ ] Soft deletes OK as-is (`restore` / `forceDelete` already invalidate)
 - [ ] Related models that embed this model via `with()` considered for cascade on the **child** (see `laravel-auto-cache-cascade`)
-- [ ] Test: warm `Model::query()->find($id)`, mutate row outside Eloquent or via another process simulation, assert cached value until model mutation invalidates
+- [ ] Decide whether list staleness after one-row edits is acceptable (see `laravel-auto-cache-flush-lists`)
+- [ ] Test: warm `Model::query()->find($id)`, mutate via `DB::table` (no Eloquent events), assert cached value until model mutation invalidates — or use `toHaveCachedFind` / `toMissCachedFind`
 
 ## Related
 
 - Cascade: `laravel-auto-cache-cascade`
 - TTL / misses: `laravel-auto-cache-ttl-misses`
+- Silent attributes: `laravel-auto-cache-silent-attributes`
+- Flush lists: `laravel-auto-cache-flush-lists`
 - Bypass: `laravel-auto-cache-bypass`
+- Pest: `laravel-auto-cache-pest`
+- Overview: `laravel-auto-cache`

@@ -13,7 +13,7 @@ metadata:
 
 ## Rule
 
-On **`updated`** only: if **every** changed attribute is listed in `$cacheSilentAttributes`, skip auto-cache invalidation for that update.
+On **`updated`** only: if **every** changed attribute is listed in `$cacheSilentAttributes`, skip auto-cache invalidation for that update (record **and** lists — even when `$cacheFlushListsOnSave` is true).
 
 Create / delete / restore / forceDelete always invalidate. Mass query mutations still flush.
 
@@ -36,9 +36,11 @@ protected array $cacheSilentAttributes = [
 
 - [ ] List is attribute names as stored on the model (not DB expressions)
 - [ ] Mixed updates (silent + non-silent) still invalidate
-- [ ] Test covers silent-only vs non-silent change
+- [ ] Test covers silent-only vs non-silent change (`toHaveCachedFind` stays after silent update)
 
 ## Related
 
 - Overview: `laravel-auto-cache`
 - Opt-in: `laravel-auto-cache-opt-in`
+- Flush lists: `laravel-auto-cache-flush-lists`
+- Pest: `laravel-auto-cache-pest`

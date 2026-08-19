@@ -3,8 +3,10 @@ name: laravel-auto-cache
 description: >-
   ACTIVATE when working with ricardobassete/laravel-auto-cache, AutoCaches,
   AutoCacheable, CachedBuilder, Eloquent query caching, $cacheInvalidates,
-  $cacheTtl, $cacheMisses, or withoutCache. Use for opt-in model caching,
-  invalidation rules, cascade tables, TTL/miss config, and cache bypass.
+  $cacheTtl, $cacheMisses, $cacheSilentAttributes, $cacheFlushListsOnSave,
+  withoutCache, autoCacheForget/Flush/FlushLists, AutoCacheCollector, or
+  auto-cache:flush. Use for opt-in model caching, invalidation rules, and
+  package APIs.
 license: MIT
 metadata:
   author: ricardobassete
@@ -40,42 +42,72 @@ composer require ricardobassete/laravel-auto-cache
 php artisan vendor:publish --tag=auto-cache-config   # optional
 ```
 
-Config keys (`config/auto-cache.php`): `store` (null = app default), `ttl` (3600), `prefix`, `lock_seconds`.
+Config (`config/auto-cache.php`):
+
+| Key | Default | Notes |
+| --- | --- | --- |
+| `store` | `null` | null = app default `Cache::store()` |
+| `ttl` | `3600` | seconds |
+| `prefix` | `auto-cache` | bump = logical flush after deploy |
+| `lock_seconds` | `5` | registry lock when store supports locks |
+| `collector.enabled` | `false` | buffer hit/miss/invalidation per request |
+| `collector.telescope` | `true` | bridge if Telescope installed |
+| `collector.debugbar` | `true` | panel if Debugbar installed |
 
 After requiring the package, run `php artisan boost:update` (or `boost:install`) so Boost installs these skills into the agent skills path.
 
 ## Mental model
 
-- **Opt-in only** via trait + `AutoCacheable` on the model.
+- **Opt-in only** via `AutoCacheable` + `AutoCaches` on the model.
 - Reads cached: `find` / `findMany` / `findOrFail` / `first` / `firstOrFail` / `get` / `all`, plus `count` / `exists` / `sum` / `pluck` / `value`.
 - Mutations do not cache results; they invalidate.
-- **Single-row** mutation → invalidate that record’s find keys only. **List/`where`/`count` caches stay stale** until TTL, mass mutation, `autoCacheFlush()`, or cascade — this is intentional.
+- **Single-row** mutation → invalidate that record’s find keys only. **List/`where`/`count` caches stay stale** until TTL, mass mutation, `autoCacheFlush()`, `autoCacheFlushLists()`, cascade, or `$cacheFlushListsOnSave = true`.
 - **Mass** mutation (`where(...)->update/delete/insert/upsert`) → flush all registered keys for the table (+ `$cacheInvalidates`).
 - Invalidation runs **`DB::afterCommit()`** (immediate if not in a transaction).
 - Eager `with` is part of the cache key; relation queries during eager load are **not** cached separately.
-- Any `Cache::store()` works; no tags required (key registry).
-- Manual: `Model::autoCacheForget($id)`, `Model::autoCacheFlush()`, `Model::autoCacheFlushLists()`, `$model->autoCacheForgetSelf()`.
-- Opt-in `$cacheFlushListsOnSave`: single-row mutations also clear list/query keys (other finds stay).
+- Any `Cache::store()` works; no tags required (key registry + tracked-tables registry).
+- `$model->refresh()` / `replicate()` do **not** invalidate auto-cache.
+
+## Manual / debug API
+
+| Method | Effect |
+| --- | --- |
+| `Model::autoCacheForget($id)` | Forget find keys for id (+ cascade tables) |
+| `Model::autoCacheFlush()` | Flush all keys for the table (+ cascade) |
+| `Model::autoCacheFlushLists()` | Flush list/query/aggregation keys only |
+| `$model->autoCacheForgetSelf()` | Forget this instance’s PK find keys |
+| `Model::autoCacheKeys()` | List registered keys for the table |
+| `Model::autoCacheRemember($id, fn, $eager = [])` | Remember under the record key |
+
+Ops: `php artisan auto-cache:flush {table?}`.
+
+## Events (always dispatched)
+
+- `RicardoBassete\AutoCache\Events\AutoCacheHit`
+- `RicardoBassete\AutoCache\Events\AutoCacheMiss`
+- `RicardoBassete\AutoCache\Events\AutoCacheInvalidated` (`scope`: `record` \| `table` \| `lists`)
+
+Optional buffering: skill `laravel-auto-cache-collector`.
 
 ## Serialization
 
-File/Redis stores serialize Eloquent models. After deploys that change attributes/casts/relations, flush or wait for TTL — stale payloads can break unserialize.
+File/Redis stores serialize Eloquent models. After deploys that change attributes/casts/relations: flush (`auto-cache:flush` / `autoCacheFlush`), bump `AUTO_CACHE_PREFIX`, or wait for TTL.
 
 ## Do / Don’t
 
 **Do**
 
 - Implement `AutoCacheable` and `use AutoCaches`.
-- Put table names (not model class names) in `$cacheInvalidates`.
-- Use `withoutCache()` or `autoCacheFlush()` when a screen must see fresh lists after a one-row edit.
-- Use `autoCacheForget` / `autoCacheFlush` when writes bypass Eloquent.
+- Put **table names** (not model class names) in `$cacheInvalidates`.
+- Use `withoutCache()`, `autoCacheFlushLists()`, `autoCacheFlush()`, or `$cacheFlushListsOnSave` when a screen must see fresh lists after a one-row edit.
+- Use `autoCacheForget` / `autoCacheFlush` / `auto-cache:flush` when writes bypass Eloquent.
 
 **Don’t**
 
-- Expect list/aggregate caches to clear on a single `save()` / `update()` on one model.
-- Assume `$model->refresh()` or `replicate()` clears auto-cache — they only affect the in-memory instance / a new unsaved copy.
-- Cache across requests expecting identity of Eloquent instances (serialize-safe stores differ from array).
+- Expect list/aggregate caches to clear on a single `save()` / `update()` unless `$cacheFlushListsOnSave` is enabled.
+- Assume `$model->refresh()` or `replicate()` clears auto-cache.
 - Call `Cache::flush()` as the normal invalidation path.
+- Invent APIs (e.g. paginate caching) — not in v1.
 
 ## Quick opt-in
 
@@ -91,10 +123,13 @@ class User extends Model implements AutoCacheable
     protected bool $cacheMisses = false;
     /** @var list<string> */
     protected array $cacheInvalidates = [];
+    /** @var list<string> */
+    protected array $cacheSilentAttributes = [];
+    protected bool $cacheFlushListsOnSave = false;
 }
 ```
 
 ## Verify
 
-After changes that touch caching behavior in the package repo: `composer check` (or `composer test` + `composer analyse`).  
-In a consumer app: feature-test the model’s read path and a mutation that should invalidate.
+Package repo: `composer check` (or `composer test` + `composer analyse`).  
+Consumer app: feature-test a read path and a mutation that should invalidate; prefer Pest expectations (`laravel-auto-cache-pest`).

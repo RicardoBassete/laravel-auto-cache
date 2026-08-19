@@ -25,7 +25,8 @@ protected ?int $cacheTtl = 600; // seconds; null = config default
 ```
 
 - Prefer config for app-wide policy; override on hot or cold models only.
-- Registry entries use the same TTL machinery as values (orphans die by expiry if lock/registry races).
+- Registry entries share TTL with values (orphans die by expiry if lock/registry races).
+- After deploys that change serialized model shape, prefer flush / prefix bump over relying only on TTL (see `laravel-auto-cache-artisan-flush`).
 
 ## Miss caching
 
@@ -42,7 +43,7 @@ Enable when repeated `find` of missing ids or empty filters hammer the DB.
 1. Decide app default in `config/auto-cache.php` (`ttl`).
 2. Set `$cacheTtl` only when this model needs a different lifetime.
 3. Set `$cacheMisses = true` only with a clear stampede/miss pattern.
-4. Add/adjust a test for miss behavior if enabling `$cacheMisses`.
+4. Add/adjust a test for miss behavior if enabling `$cacheMisses` (Pest: `toMissCachedFind` then create then `toHaveCachedFind` after warm find).
 
 ## Checklist
 
@@ -53,4 +54,5 @@ Enable when repeated `find` of missing ids or empty filters hammer the DB.
 ## Related
 
 - Opt-in: `laravel-auto-cache-opt-in`
+- Pest: `laravel-auto-cache-pest`
 - Overview: `laravel-auto-cache`
