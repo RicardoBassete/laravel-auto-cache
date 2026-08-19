@@ -28,6 +28,7 @@ Requires: Laravel 11+ / PHP 8.2+
 | Flush lists on save | `laravel-auto-cache-flush-lists` |
 | Pest expectations | `laravel-auto-cache-pest` |
 | Request collector / Telescope / Debugbar | `laravel-auto-cache-collector` |
+| Artisan flush | `laravel-auto-cache-artisan-flush` |
 | General behavior / mental model | this skill |
 
 Read the focused skill before editing; do not invent APIs beyond what those skills document.

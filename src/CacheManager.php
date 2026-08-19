@@ -144,6 +144,8 @@ final class CacheManager
 
     public function registerKey(string $table, string $key, int|string|null $recordId = null): void
     {
+        $this->trackTable($table);
+
         $this->mutateRegistry($this->tableRegistryKey($table), function (array $keys) use ($key): array {
             if (! in_array($key, $keys, true)) {
                 $keys[] = $key;
@@ -161,6 +163,30 @@ final class CacheManager
                 return $keys;
             });
         }
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function trackedTables(): array
+    {
+        return $this->readRegistry($this->tablesRegistryKey());
+    }
+
+    public function tablesRegistryKey(): string
+    {
+        return $this->prefix().':registry:tables';
+    }
+
+    public function trackTable(string $table): void
+    {
+        $this->mutateRegistry($this->tablesRegistryKey(), function (array $tables) use ($table): array {
+            if (! in_array($table, $tables, true)) {
+                $tables[] = $table;
+            }
+
+            return $tables;
+        });
     }
 
     public function invalidateRecord(string $table, int|string $id): void

@@ -36,6 +36,7 @@ Optional: `$cacheFlushListsOnSave = true` — single-row saves also clear list/q
 - Debug helpers: `Model::autoCacheKeys()`, `Model::autoCacheRemember($id, fn)`
 - Observability events: `AutoCacheHit`, `AutoCacheMiss`, `AutoCacheInvalidated`
 - Optional request collector (+ Telescope / Debugbar bridges)
+- Artisan: `php artisan auto-cache:flush {table?}`
 - Pest expectations (optional): `toHaveCachedFind` / `toMissCachedFind`
 
 ## Important: intentional cache staleness
@@ -125,6 +126,7 @@ and select this package’s skills/guidelines when prompted. Boost copies skills
 | `laravel-auto-cache-flush-lists` | `$cacheFlushListsOnSave` / `autoCacheFlushLists()` |
 | `laravel-auto-cache-pest` | Pest `toHaveCachedFind` / `toMissCachedFind` |
 | `laravel-auto-cache-collector` | Request collector / Telescope / Debugbar |
+| `laravel-auto-cache-artisan-flush` | `php artisan auto-cache:flush` |
 
 Canonical copies for Boost live under `resources/boost/skills/`. Matching files under [`.agents/skills/`](.agents/skills/) stay in sync for agents opened on this package repo.
 
@@ -147,6 +149,13 @@ AUTO_CACHE_COLLECTOR=true
 ```
 
 Buffer hit/miss/invalidation on `AutoCacheCollector` for the current request. With `laravel/telescope` or `barryvdh/laravel-debugbar` installed, optional bridges feed Telescope’s Cache watcher and a Debugbar `auto-cache` panel (see skill `laravel-auto-cache-collector`).
+
+## Artisan flush
+
+```bash
+php artisan auto-cache:flush users
+php artisan auto-cache:flush          # all tracked tables
+```
 
 ## Development
 

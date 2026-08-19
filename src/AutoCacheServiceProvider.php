@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RicardoBassete\AutoCache;
 
 use Illuminate\Support\ServiceProvider;
+use RicardoBassete\AutoCache\Console\FlushAutoCacheCommand;
 use RicardoBassete\AutoCache\Support\AutoCacheCollector;
 use RicardoBassete\AutoCache\Support\AutoCacheObservability;
 use RicardoBassete\AutoCache\Support\DebugbarBridge;
@@ -24,6 +25,10 @@ final class AutoCacheServiceProvider extends ServiceProvider
         AutoCacheObservability::register($this->app->make(AutoCacheCollector::class));
 
         if ($this->app->runningInConsole()) {
+            $this->commands([
+                FlushAutoCacheCommand::class,
+            ]);
+
             $this->publishes([
                 __DIR__.'/../config/auto-cache.php' => config_path('auto-cache.php'),
             ], 'auto-cache-config');
